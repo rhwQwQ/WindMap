@@ -49,6 +49,11 @@ class ViewController: UIViewController, MAMapViewDelegate {
         
         view.addSubview(mapView)
         
+        // 创建自定义的瓦片覆盖物并设置boundingMapRect
+        let tileOverlay = MyTileOverlay()
+        tileOverlay.boundingMapRect = MAMapRectWorld
+        mapView.add(tileOverlay)
+        
         let button = UIButton(frame: CGRect(x: 10, y: 200, width: 50, height: 50))
         button.backgroundColor = .red
         button.addTarget(self, action: #selector(buttonClick(_:)), for: .touchUpInside)
@@ -113,6 +118,12 @@ class ViewController: UIViewController, MAMapViewDelegate {
             changeFrame()
             windView?.windRestart()
         }
+    }
+    func mapView(_ mapView: MAMapView!, rendererFor overlay: MAOverlay!) -> MAOverlayRenderer! {
+        if let tileOverlay = overlay as? MyTileOverlay {
+            return MATileOverlayRenderer(tileOverlay: tileOverlay)
+        }
+        return MAOverlayRenderer()
     }
 }
 extension ViewController{
@@ -188,5 +199,51 @@ extension ViewController{
         }
         streakView?.frame = CGRect(x: point1.x, y: point2.y, width: effectWidth, height: effectHeight)
         windView?.frame = CGRect(x: point1.x, y: point2.y, width: effectWidth, height: effectHeight)
+    }
+}
+class MyTileOverlay: MATileOverlay {
+    private let cache = NSCache<NSString, NSData>()
+    override func loadTile(at path: MATileOverlayPath, result: ((Data?, Error?) -> Void)!) {
+        DispatchQueue.global(qos: .background).async {
+            let key = "\(path.x)_\(path.y)_\(path.z)" as NSString
+            
+            // Check if tile image data is already cached
+            if let imageData = self.cache.object(forKey: key) {
+                result(imageData as Data, nil)
+                return
+            }
+            
+            let tileSize = self.tileSize.width
+            
+            let rendererFormat = UIGraphicsImageRendererFormat()
+            rendererFormat.scale = UIScreen.main.scale
+            let renderer = UIGraphicsImageRenderer(size: CGSize(width: tileSize, height: tileSize), format: rendererFormat)
+            
+            let image = renderer.image { context in
+                for y in 0..<Int(tileSize) {
+                    for x in 0..<Int(tileSize) {
+                        let color = self.getRandomColor()
+                        let rect = CGRect(x: x, y: y, width: 1, height: 1)
+                        context.fill(rect)
+                        color.setFill()
+                        UIRectFill(rect)
+                    }
+                }
+            }
+            
+            if let imageData = image.pngData() {
+                self.cache.setObject(imageData as NSData, forKey: key)
+                result(imageData, nil)
+            } else {
+                result(nil, NSError(domain: "com.example.error", code: 0, userInfo: nil))
+            }
+        }
+    }
+    private func getRandomColor() -> UIColor {
+        let red = CGFloat.random(in: 0...1)
+        let green = CGFloat.random(in: 0...1)
+        let blue = CGFloat.random(in: 0...1)
+        let alpha = CGFloat.random(in: 0...0.6)
+        return UIColor(red: red, green: green, blue: blue, alpha: alpha)
     }
 }

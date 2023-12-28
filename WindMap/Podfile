@@ -1,0 +1,9 @@
+# Uncomment the next line to define a global platform for your project
+# platform :ios, '9.0'
+
+target 'WindMap' do
+  use_frameworks!
+  pod 'AMap3DMap-NO-IDFA'
+  pod 'AMapLocation-NO-IDFA'
+  pod 'AMapSearch-NO-IDFA'
+end
